@@ -230,7 +230,7 @@ function render() {
   let h = '';
 
   // header
-  const sprintLabel = S.view === 'sprint' ? S.sprintName : ('Q Projection (' + S.sprintsPQ + ' sprints)');
+  const sprintLabel = S.view === 'sprint' ? S.sprintName : 'Quarterly';
   const dateHtml = (S.startDate || S.endDate)
     ? '<span style="font-size:11px;color:#94a3b8;font-style:italic">' + formatDateRange(S.startDate, S.endDate) + '</span>'
     : '<span style="font-size:11px;color:#cbd5e1;font-style:italic">Add sprint dates above</span>';
