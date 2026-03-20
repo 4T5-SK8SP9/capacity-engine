@@ -598,25 +598,40 @@ function genReport() {
         </div>`;
       }).join('');
 
-      const teamHtml = S.members.map((m, i) => {
-        const ac = ['#f59e0b','#3b82f6','#10b981','#8b5cf6','#ec4899','#06b6d4'][i%6];
-        const barColor = m.avail >= 80 ? '#059669' : m.avail >= 60 ? '#f59e0b' : '#ef4444';
-        return `<tr style="background:${i%2===0?'#fff':'#f8fafc'}">
-          <td style="padding:10px 12px;display:flex;align-items:center;gap:10px">
-            <div style="width:28px;height:28px;border-radius:6px;background:${ac};display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:12px;flex-shrink:0">${m.name.charAt(0)}</div>
-            <span style="font-size:13px;font-weight:600">${m.name}</span>
-          </td>
-          <td style="padding:10px 12px;font-size:12px;color:#64748b">${m.role}</td>
-          <td style="padding:10px 16px">
-            <div style="display:flex;align-items:center;gap:8px">
-              <div style="flex:1;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden">
-                <div style="height:100%;width:${m.avail}%;background:${barColor};border-radius:4px"></div>
+      // Availability summary — no individual names
+      const totalMembers = S.members.length;
+      const fullAvail    = S.members.filter(m => m.avail === 100).length;
+      const partAvail    = S.members.filter(m => m.avail > 0 && m.avail < 100).length;
+      const avgAvailPct  = Math.round(C.avgAvail);
+      const roleGroups   = {};
+      S.members.forEach(m => { roleGroups[m.role] = (roleGroups[m.role]||0) + 1; });
+      const roleHtml = Object.entries(roleGroups).map(([role, count]) =>
+        `<span style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;padding:4px 12px;font-size:12px;color:#334155"><b>${count}</b> ${role}</span>`
+      ).join(' ');
+      const availBarColor = avgAvailPct >= 80 ? '#059669' : avgAvailPct >= 60 ? '#f59e0b' : '#ef4444';
+      const teamHtml = `
+        <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+          <div style="flex:1;min-width:200px">
+            <div style="font-size:13px;color:#64748b;margin-bottom:8px">Team size</div>
+            <div style="font-family:'Courier New',monospace;font-size:28px;font-weight:700;color:#0f172a">${totalMembers}<span style="font-size:14px;color:#94a3b8;margin-left:6px">people</span></div>
+            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${roleHtml}</div>
+          </div>
+          <div style="flex:1;min-width:200px">
+            <div style="font-size:13px;color:#64748b;margin-bottom:8px">Average availability</div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="font-family:'Courier New',monospace;font-size:28px;font-weight:700;color:${availBarColor}">${avgAvailPct}%</div>
+              <div style="flex:1">
+                <div style="height:10px;background:#e2e8f0;border-radius:5px;overflow:hidden">
+                  <div style="height:100%;width:${avgAvailPct}%;background:${availBarColor};border-radius:5px"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-top:3px"><span>0%</span><span>100%</span></div>
               </div>
-              <span style="font-size:12px;font-weight:700;color:${barColor};width:36px">${m.avail}%</span>
             </div>
-          </td>
-        </tr>`;
-      }).join('');
+            <div style="font-size:12px;color:#64748b;margin-top:8px">
+              ${fullAvail} fully available · ${partAvail} part-time / reduced capacity
+            </div>
+          </div>
+        </div>`;
 
       const levers = [
         {l:'Focus Factor',    v:S.focusFactor+'%',  c:'#2563eb'},
@@ -678,16 +693,9 @@ function genReport() {
   </div>
 
   <!-- Team -->
-  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:24px">
-    <div style="padding:16px 24px 0"><div class="section-title">Team Availability</div></div>
-    <table>
-      <thead><tr style="background:#f8fafc">
-        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Name</th>
-        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Role</th>
-        <th style="padding:8px 16px;text-align:left;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Availability</th>
-      </tr></thead>
-      <tbody>${teamHtml}</tbody>
-    </table>
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px 24px;margin-bottom:24px">
+    <div class="section-title">Team Availability</div>
+    ${teamHtml}
   </div>
 
   <!-- Levers -->
