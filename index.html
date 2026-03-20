@@ -221,23 +221,25 @@ function render() {
   h += `<div class="header">
     <div>
       <h1>Capacity Engine</h1>
-      <div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <input class="hdr-field" style="font-size:15px;color:#0f172a;font-weight:600;border-bottom-color:#e2e8f0;max-width:200px"
-          value="${S.teamName}" title="Click to edit team name"
-          oninput="S.teamName=this.value" onchange="saveState();render()"/>
-        <span style="color:#cbd5e1;font-family:'Space Mono',monospace">&middot;</span>
-        <input class="hdr-field" value="${S.view==='sprint'?S.sprintName:'Q Projection ('+S.sprintsPQ+' sprints)'}"
-          title="Click to edit sprint / quarter label"
-          oninput="S.sprintName=this.value" onchange="saveState();render()"/>
-        <span style="color:#cbd5e1;font-family:'Space Mono',monospace">&middot;</span>
-        <span class="hdr-lbl">from</span>
-        <input class="hdr-field" type="date" value="${S.startDate}"
-          title="Sprint start date"
-          onchange="S.startDate=this.value;saveState();render()" style="width:130px"/>
-        <span class="hdr-lbl">to</span>
-        <input class="hdr-field" type="date" value="${S.endDate}"
-          title="Sprint end date"
-          onchange="S.endDate=this.value;saveState();render()" style="width:130px"/>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <input class="hdr-field" style="font-size:15px;color:#0f172a;font-weight:600;border-bottom-color:#e2e8f0;max-width:220px"
+            value="${S.teamName}" title="Click to edit team name"
+            oninput="S.teamName=this.value" onchange="saveState();render()"/>
+          <span style="color:#cbd5e1;font-family:'Space Mono',monospace;font-size:14px">&middot;</span>
+          <input class="hdr-field" style="max-width:220px"
+            value="${S.view==='sprint'?S.sprintName:'Q Projection ('+S.sprintsPQ+' sprints)'}"
+            title="Click to edit sprint / quarter label"
+            oninput="S.sprintName=this.value" onchange="saveState();render()"/>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span class="hdr-lbl">From</span>
+          <input class="hdr-field" type="date" value="${S.startDate}"
+            onchange="S.startDate=this.value;saveState();render()" style="width:140px"/>
+          <span class="hdr-lbl" style="margin-left:4px">To</span>
+          <input class="hdr-field" type="date" value="${S.endDate}"
+            onchange="S.endDate=this.value;saveState();render()" style="width:140px"/>
+        </div>
       </div>
     </div>
     <div class="header-right">
