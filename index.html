@@ -110,6 +110,7 @@ const S = {
   // UI
   open: {summary:true,waterfall:true,levers:true,team:true,velocity:true,report:false},
   rptState: 'idle',
+  rptError: '',
 };
 
 // ─── calc ─────────────────────────────────────────────────────────────────────
@@ -153,6 +154,17 @@ function fmtNum(v) {
 }
 function pct(v, min, max) {
   return Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100));
+}
+function formatDateRange(start, end) {
+  const fmt = s => {
+    if (!s) return '?';
+    const d = new Date(s + 'T12:00:00'); // noon avoids timezone day-shift
+    return d.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'});
+  };
+  if (start && end) return fmt(start) + ' – ' + fmt(end);
+  if (start) return 'From ' + fmt(start);
+  if (end)   return 'Until ' + fmt(end);
+  return '';
 }
 
 // ─── components ───────────────────────────────────────────────────────────────
@@ -421,6 +433,7 @@ function render() {
       <div class="report-row">
         <button class="btn btn-g" onclick="genReport()" ${S.rptState==='loading'?'disabled':''}>${rTxt}</button>
         ${S.rptState==='done' ? '<span style="font-size:11px;color:#94a3b8">In the new tab: Ctrl+P &rarr; Save as PDF</span>' : ''}
+        ${S.rptState==='error' && S.rptError ? `<span style="font-size:11px;color:#ef4444">${S.rptError}</span>` : ''}
       </div>
     </div>` : ''}
   </div>`;
@@ -531,6 +544,7 @@ function genReport() {
       if (!C) { S.rptState='error'; render(); return; }
 
       const svg     = buildSVG(C);
+      if (!svg) throw new Error('SVG build returned empty');
       const svgBlob = new Blob([svg], {type:'image/svg+xml;charset=utf-8'});
       const svgURL  = URL.createObjectURL(svgBlob);
       const img     = new Image();
@@ -588,10 +602,11 @@ img{display:block;width:100%;max-width:794px;margin:0 auto}
       img.src = svgURL;
 
     } catch(err) {
-      console.error('Report error:', err);
+      console.error('Report error:', err.message, err.stack);
       S.rptState = 'error';
+      S.rptError = err.message;
       render();
-      setTimeout(() => { S.rptState='idle'; render(); }, 3000);
+      setTimeout(() => { S.rptState='idle'; S.rptError=''; render(); }, 4000);
     }
   }, 60);
 }
@@ -731,4 +746,3 @@ render();
 </script>
 </body>
 </html>
-
