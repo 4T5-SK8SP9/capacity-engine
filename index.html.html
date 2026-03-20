@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Capacity Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#f8fafc;color:#0f172a;padding:24px;min-height:100vh}
+.header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px;border-bottom:1px solid #e2e8f0;padding-bottom:20px}
+.header-right{display:flex;gap:8px;flex-wrap:wrap}
+h1{font-family:'Space Mono',monospace;font-size:24px;font-weight:700;background:linear-gradient(135deg,#059669,#2563eb);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{margin-top:4px;color:#64748b;font-size:13px;font-family:'Space Mono',monospace}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:720px){.grid2{grid-template-columns:1fr}}
+.tgroup{display:flex;background:#e2e8f0;border-radius:8px;overflow:hidden}
+.tbtn{padding:7px 13px;font-size:12px;font-weight:500;border:none;cursor:pointer;background:transparent;color:#64748b;font-family:inherit;transition:all .15s}
+.tbtn.on{background:#059669;color:#fff;font-weight:600}
+.btn{padding:9px 16px;font-size:13px;font-weight:600;border-radius:8px;border:none;cursor:pointer;font-family:inherit}
+.btn-g{background:#059669;color:#fff}
+.btn-ghost{background:#f1f5f9;color:#334155;border:1px solid #cbd5e1}
+.btn-sm{padding:5px 10px;font-size:11px;font-weight:600;background:transparent;color:#64748b;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-family:inherit}
+.btn-dash{width:100%;margin-top:12px;padding:8px;font-size:12px;font-weight:600;background:transparent;color:#94a3b8;border:1px dashed #cbd5e1;border-radius:8px;cursor:pointer;font-family:inherit}
+.sec-hdr{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.sec-hdr h2{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0f172a}
+.arrow{font-size:13px;color:#94a3b8;display:inline-block;transition:transform .2s;width:14px}
+.sec-body{margin-top:14px}
+.metrics-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.mc{flex:1 1 130px;background:#f8fafc;border:1px solid #e2e8f0;border-left:3px solid;border-radius:10px;padding:12px 14px}
+.mc.lg{flex:1.5 1 180px;background:#f0fdf8}
+.mc-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;display:block;margin-bottom:4px}
+.mc-val{font-family:'Space Mono',monospace;font-size:20px;font-weight:700}
+.mc-val.lg{font-size:28px}
+.mc-unit{font-size:12px;color:#94a3b8;margin-left:3px}
+.wf-wrap{margin-bottom:10px}
+.wf-row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px}
+.wf-track{height:18px;background:#f1f5f9;border-radius:4px;overflow:hidden}
+.wf-fill{height:100%;border-radius:4px;transition:width .4s;opacity:.82}
+.lever{margin-bottom:16px}
+.lever-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.lever-lhs{display:flex;align-items:center;gap:8px}
+.lever-lbl{font-size:13px;font-weight:600}
+.lever-val{font-family:'Space Mono',monospace;font-size:14px;font-weight:700}
+.lever-desc{font-size:11px;color:#94a3b8;margin:0 0 5px;line-height:1.3}
+.tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 6px;border-radius:4px}
+.sw{position:relative;height:6px;background:#e2e8f0;border-radius:3px;margin-bottom:3px}
+.sf{position:absolute;top:0;left:0;height:100%;border-radius:3px;pointer-events:none;transition:width .1s}
+.sw input[type=range]{position:absolute;top:-8px;left:0;width:100%;height:22px;opacity:0;cursor:pointer;z-index:2;margin:0}
+.sminmax{display:flex;justify-content:space-between;font-size:10px;color:#94a3b8}
+.member-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f1f5f9;gap:8px}
+.mlhs{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.avatar{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
+.mname{font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#0f172a}
+.mname-inp{font-size:13px;font-weight:600;background:#f8fafc;border:1px solid #059669;border-radius:4px;color:#0f172a;padding:2px 6px;width:130px;font-family:inherit;outline:none}
+.role-sel{font-size:10px;color:#64748b;background:transparent;border:none;cursor:pointer;font-family:inherit;outline:none}
+.mrhs{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.apct{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;color:#059669;width:36px;text-align:right}
+input.mslider{width:80px;accent-color:#059669;cursor:pointer}
+.rmbtn{width:22px;height:22px;border-radius:4px;border:1px solid #e2e8f0;background:transparent;color:#94a3b8;cursor:pointer;font-size:15px;line-height:1}
+.velbars{display:flex;gap:12px;align-items:flex-end;height:100px;margin-top:12px}
+.velbar{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.velinner{width:100%;height:60px;background:#f1f5f9;border-radius:4px;overflow:hidden;display:flex;align-items:flex-end}
+.velfill{width:100%;background:#3b82f6;transition:height .3s}
+.empty{text-align:center;padding:80px 20px}
+.disclaimer{font-size:12px;color:#94a3b8;text-align:center;font-style:italic;padding:20px;border-top:1px solid #e2e8f0;line-height:1.5}
+.ds-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.ds-title{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b}
+.badge{font-size:11px;color:#059669;font-weight:600;margin-left:auto}
+.report-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// ─── constants ────────────────────────────────────────────────────────────────
+const AVCOLS = ['#f59e0b','#3b82f6','#10b981','#8b5cf6','#ec4899','#06b6d4'];
+const ROLES  = ['Dev','QA','Design','Lead','Ops','Data','Other'];
+
+// ─── state ────────────────────────────────────────────────────────────────────
+const S = {
+  connected: false,
+  unit: 'sp',
+  view: 'sprint',
+  teamName: 'Your Team',
+  sprintName: 'Sprint X',
+  members: [],
+  velocity: [],
+  editIdx: null,
+  // levers — always numbers
+  sprintWeeks: 2,
+  focusFactor: 70,
+  newDevPct:   70,
+  extDep:      10,
+  techDebt:    15,
+  carryOver:   0,
+  ceremony:    4,
+  hpd:         7.5,
+  spToH:       6,
+  sprintsPQ:   6,
+  // UI
+  open: {summary:true,waterfall:true,levers:true,team:true,velocity:true,report:false},
+  rptState: 'idle',
+};
+
+// ─── calc ─────────────────────────────────────────────────────────────────────
+function compute() {
+  if (!S.members.length) return null;
+  const avgAvail  = S.members.reduce((a,m) => a + m.avail, 0) / S.members.length;
+  const grossPP   = S.sprintWeeks * 5 * S.hpd - S.ceremony * S.sprintWeeks;
+  const teamGross = S.members.reduce((a,m) => a + grossPP * (m.avail/100), 0);
+  const focused   = teamGross  * (S.focusFactor/100);
+  const newDev    = focused    * (S.newDevPct/100);
+  const ops       = focused    * (1 - S.newDevPct/100);
+  const aftTD     = newDev     * (1 - S.techDebt/100);
+  const aftED     = aftTD      * (1 - S.extDep/100);
+  const coH       = S.unit === 'hours' ? S.carryOver : S.carryOver * S.spToH;
+  const delH      = Math.max(0, aftED - coH);
+  const delSP     = delH / S.spToH;
+  const tdH       = newDev * (S.techDebt/100);
+  const avgVel    = S.velocity.length ? S.velocity.reduce((a,b)=>a+b,0)/S.velocity.length : null;
+  const velDelta  = avgVel ? ((delSP - avgVel) / avgVel) * 100 : null;
+  let rf = 0;
+  if (avgAvail < 70)             rf++;
+  if (S.focusFactor < 60)        rf++;
+  if (S.extDep > 20)             rf++;
+  if (S.carryOver > delSP * 0.3) rf++;
+  if (S.members.length < 3)      rf++;
+  if (S.newDevPct < 50)          rf++;
+  return {
+    avgAvail, teamGross, focused, newDev, ops, aftTD, aftED,
+    delH, delSP, tdH, tdSP: tdH/S.spToH, opsSP: ops/S.spToH,
+    qH: delH*S.sprintsPQ, qSP: delSP*S.sprintsPQ,
+    avgVel, velDelta,
+    risk:  rf>=3?'High':rf>=1?'Medium':'Low',
+    riskC: rf>=3?'#ef4444':rf>=1?'#f59e0b':'#4ade80',
+  };
+}
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+function fmtNum(v) {
+  if (typeof v !== 'number') return String(v);
+  return v % 1 !== 0 ? v.toFixed(1) : String(v);
+}
+function pct(v, min, max) {
+  return Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100));
+}
+
+// ─── components ───────────────────────────────────────────────────────────────
+function lever(key, label, min, max, step, suffix, color, desc, tag) {
+  const val = Number(S[key]);   // ALWAYS convert to number — prevents toFixed crash
+  const p   = pct(val, min, max);
+  const disp = val % 1 !== 0 ? val.toFixed(1) : String(val);
+  return `<div class="lever">
+    <div class="lever-hdr">
+      <div class="lever-lhs">
+        <span class="lever-lbl">${label}</span>
+        ${tag ? `<span class="tag" style="background:${color}22;color:${color}">${tag}</span>` : ''}
+      </div>
+      <span class="lever-val" style="color:${color}">${disp}${suffix}</span>
+    </div>
+    ${desc ? `<p class="lever-desc">${desc}</p>` : ''}
+    <div class="sw">
+      <div class="sf" style="width:${p}%;background:${color}"></div>
+      <input type="range" min="${min}" max="${max}" step="${step}" value="${val}"
+        oninput="setL('${key}',this.value)"/>
+    </div>
+    <div class="sminmax"><span>${min}${suffix}</span><span>${max}${suffix}</span></div>
+  </div>`;
+}
+
+function mcard(label, value, unit, color, large, trend) {
+  const disp = fmtNum(value);
+  const tr = (trend !== undefined && trend !== null)
+    ? `<span style="font-size:11px;font-weight:600;display:block;margin-top:3px;color:${trend>=0?'#22c55e':'#f87171'}">${trend>=0?'▲':'▼'} ${Math.abs(trend).toFixed(1)}%</span>`
+    : '';
+  return `<div class="mc${large?' lg':''}" style="border-left-color:${color}">
+    <span class="mc-label">${label}</span>
+    <div style="display:flex;align-items:baseline;gap:4px">
+      <span class="mc-val${large?' lg':''}" style="color:${color}">${disp}</span>
+      <span class="mc-unit">${unit}</span>
+    </div>${tr}
+  </div>`;
+}
+
+function secHdr(title, key) {
+  return `<div class="sec-hdr" onclick="tog('${key}')">
+    <span class="arrow" style="transform:rotate(${S.open[key]?'0':'-90'}deg)">▾</span>
+    <h2>${title}</h2>
+  </div>`;
+}
+
+// ─── render ───────────────────────────────────────────────────────────────────
+function render() {
+  const C  = compute();
+  const dU = S.unit === 'sp' ? 'SP' : 'hrs';
+  const sp = (a, b) => S.unit === 'sp' ? a : b;
+
+  const wf = C ? [
+    {label:'Gross',          value:C.teamGross, color:'#64748b'},
+    {label:'After Focus',    value:C.focused,   color:'#3b82f6'},
+    {label:'New Dev Pool',   value:C.newDev,    color:'#06b6d4', sub:`Ops: ${sp(C.opsSP,C.ops).toFixed(0)} ${dU}`},
+    {label:'After Tech Debt',value:C.aftTD,     color:'#8b5cf6'},
+    {label:'After Ext. Dep.',value:C.aftED,     color:'#f59e0b'},
+    {label:'Deliverable',    value:C.delH,      color:'#10b981'},
+  ] : [];
+  const maxWF = wf.length ? wf[0].value : 1;
+
+  let h = '';
+
+  // header
+  h += `<div class="header">
+    <div>
+      <h1>Capacity Engine</h1>
+      <p class="subtitle">${S.teamName} &middot; ${S.view==='sprint'?S.sprintName:`Q Projection (${S.sprintsPQ} sprints)`}</p>
+    </div>
+    <div class="header-right">
+      <div class="tgroup">
+        <button class="tbtn${S.unit==='sp'?' on':''}" onclick="S.unit='sp';render()">Story Points</button>
+        <button class="tbtn${S.unit==='hours'?' on':''}" onclick="S.unit='hours';render()">Hours</button>
+      </div>
+      <div class="tgroup">
+        <button class="tbtn${S.view==='sprint'?' on':''}" onclick="S.view='sprint';render()">Sprint</button>
+        <button class="tbtn${S.view==='quarter'?' on':''}" onclick="S.view='quarter';render()">Quarter</button>
+      </div>
+    </div>
+  </div>`;
+
+  // data source
+  h += `<div class="card">
+    <div class="ds-hdr">
+      <span style="font-size:18px">&#9889;</span>
+      <span class="ds-title">Data Source</span>
+      ${S.connected ? `<span class="badge">&#9679; Sample Data</span>` : ''}
+    </div>
+    ${!S.connected
+      ? `<div style="display:flex;gap:10px">
+           <button class="btn btn-g" onclick="loadSample()">Load Sample Data</button>
+         </div>`
+      : `<div style="display:flex;gap:10px;align-items:center">
+           <span style="font-size:13px;color:#64748b">Sample data loaded. Edit freely below.</span>
+           <button class="btn-sm" onclick="resetData()">Reset</button>
+         </div>`
+    }
+  </div>`;
+
+  if (!C) {
+    h += `<div class="empty">
+      <div style="font-size:48px;margin-bottom:16px">&#128202;</div>
+      <h2 style="font-family:'Space Mono',monospace;font-size:20px;margin-bottom:8px;color:#0f172a">Load data to begin</h2>
+      <p style="color:#94a3b8">Load sample data above to start modelling your sprint capacity.</p>
+    </div>`;
+    document.getElementById('root').innerHTML = h;
+    return;
+  }
+
+  // summary
+  const delVal = S.view==='sprint' ? sp(C.delSP, C.delH) : sp(C.qSP, C.qH);
+  h += `<div class="card">
+    ${secHdr('Capacity Summary','summary')}
+    ${S.open.summary ? `<div class="metrics-row">
+      ${mcard(S.view==='sprint'?'Deliverable Capacity':'Quarter Capacity', delVal, dU, '#059669', true)}
+      ${mcard('Avg Availability', C.avgAvail, '%', '#3b82f6')}
+      ${mcard('Tech Debt Budget', sp(C.tdSP,C.tdH), dU, '#8b5cf6')}
+      ${mcard('Ops Budget', sp(C.opsSP,C.ops), dU, '#06b6d4')}
+      ${mcard('Risk Level', C.risk, '', C.riskC)}
+      ${C.avgVel ? mcard('vs. Avg Velocity', C.avgVel, 'SP', '#f59e0b', false, C.velDelta) : ''}
+    </div>` : ''}
+  </div>`;
+
+  // waterfall
+  h += `<div class="card">
+    ${secHdr('Capacity Waterfall','waterfall')}
+    ${S.open.waterfall ? `<div class="sec-body">
+      ${wf.map(b => `<div class="wf-wrap">
+        <div class="wf-row">
+          <span style="color:${b.color};font-weight:600">${b.label}</span>
+          <span style="font-family:'Space Mono',monospace;font-size:12px;color:#64748b">
+            ${S.unit==='sp'?(b.value/S.spToH).toFixed(0)+' SP':b.value.toFixed(0)+' hrs'}
+          </span>
+        </div>
+        ${b.sub ? `<p style="font-size:11px;color:#94a3b8;font-style:italic;margin-bottom:3px">&#8627; ${b.sub} reserved for ops</p>` : ''}
+        <div class="wf-track"><div class="wf-fill" style="width:${(b.value/maxWF)*100}%;background:${b.color}"></div></div>
+      </div>`).join('')}
+    </div>` : ''}
+  </div>`;
+
+  // grid
+  h += `<div class="grid2">`;
+
+  // levers
+  h += `<div class="card">
+    ${secHdr('Capacity Levers','levers')}
+    ${S.open.levers ? `<div class="sec-body">
+      ${lever('sprintWeeks','Sprint Length',   1,4,   0.5,' wks',  '#3b82f6','','Scope')}
+      ${lever('focusFactor','Focus Factor',    30,95, 5,  '%',     '#059669','Time on sprint goals vs. interrupts, context-switching','High Impact')}
+      ${lever('newDevPct',  'New Dev vs Ops',  10,100,5,  '% new dev','#06b6d4',`${S.newDevPct}% new features · ${100-S.newDevPct}% ops (BAU, incidents)`,'Split')}
+      ${lever('extDep',     'Ext. Dep. Buffer',0,40,  5,  '%',     '#f59e0b','Reserved for cross-team blockers and wait time','Risk')}
+      ${lever('techDebt',   'Tech Debt / Innovation',0,40,5,'%',   '#8b5cf6','Protected time from new dev pool','Sustainability')}
+      ${lever('carryOver',  'Carry-Over',      0,50,  1,  S.unit==='sp'?' SP':' hrs','#ef4444','Unfinished work from previous sprint','Drag')}
+      ${lever('ceremony',   'Ceremony Time',   1,10,  0.5,' hrs/wk','#06b6d4','Standups, retros, reviews, planning, refinement','')}
+      ${lever('hpd',        'Hours per Day',   5,9,   0.5,' hrs',  '#64748b','','')}
+      ${S.unit==='sp' ? lever('spToH','SP to Hours Ratio',2,12,0.5,' hrs/SP','#ec4899','Average hours per story point','') : ''}
+      ${S.view==='quarter' ? lever('sprintsPQ','Sprints per Quarter',3,8,1,'','#3b82f6','','') : ''}
+    </div>` : ''}
+  </div>`;
+
+  // team
+  h += `<div class="card">
+    ${secHdr('Team Members','team')}
+    ${S.open.team ? `<div class="sec-body">
+      ${S.members.map((m,i) => `
+        <div class="member-row">
+          <div class="mlhs">
+            <div class="avatar" style="background:${AVCOLS[i%6]}">${m.name.charAt(0)}</div>
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+              ${S.editIdx===i
+                ? `<input class="mname-inp" id="mi${i}" value="${m.name}"
+                    oninput="S.members[${i}].name=this.value"
+                    onblur="S.editIdx=null;render()"
+                    onkeydown="if(event.key==='Enter'){S.editIdx=null;render()}">`
+                : `<span class="mname" onclick="S.editIdx=${i};render()" title="Click to edit">
+                    ${m.name} <span style="font-size:10px;color:#cbd5e1">&#9998;</span>
+                  </span>`
+              }
+              <select class="role-sel" onchange="S.members[${i}].role=this.value;render()">
+                ${ROLES.map(r=>`<option${m.role===r?' selected':''}>${r}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="mrhs">
+            <input type="range" class="mslider" min="0" max="100" value="${m.avail}"
+              oninput="S.members[${i}].avail=parseInt(this.value);render()"/>
+            <span class="apct">${m.avail}%</span>
+            <button class="rmbtn" onclick="S.members.splice(${i},1);render()">&times;</button>
+          </div>
+        </div>`).join('')}
+      <button class="btn-dash" onclick="S.members.push({name:'Person '+(S.members.length+1),role:'Dev',avail:100});render()">
+        + Add Team Member
+      </button>
+      ${S.velocity.length && C ? `
+        <div style="margin-top:20px">
+          ${secHdr('Velocity Reference','velocity')}
+          ${S.open.velocity ? `<div class="velbars">
+            ${S.velocity.map((v,i) => {
+              const mx = Math.max(...S.velocity, C.delSP);
+              return `<div class="velbar">
+                <div class="velinner"><div class="velfill" style="height:${(v/mx)*100}%"></div></div>
+                <span style="font-family:'Space Mono',monospace;font-size:10px;color:#64748b">${v} SP</span>
+                <span style="font-size:9px;color:#94a3b8">S-${S.velocity.length-i}</span>
+              </div>`;
+            }).join('')}
+            <div class="velbar">
+              <div class="velinner">
+                <div class="velfill" style="background:#059669;height:${(C.delSP/Math.max(...S.velocity,C.delSP))*100}%"></div>
+              </div>
+              <span style="font-family:'Space Mono',monospace;font-size:10px;font-weight:700;color:#059669">${C.delSP.toFixed(0)} SP</span>
+              <span style="font-size:9px;color:#94a3b8">Plan</span>
+            </div>
+          </div>` : ''}
+        </div>` : ''}
+    </div>` : ''}
+  </div>`;
+
+  h += `</div>`; // end grid
+
+  // report
+  const rTxt = S.rptState==='done'  ? '&#10003; Opened &mdash; Ctrl+P to save as PDF'
+             : S.rptState==='error' ? '&#9888; Failed &mdash; try again'
+             : '&#128196; Generate PDF Report';
+  h += `<div class="card">
+    ${secHdr('Generate Report','report')}
+    ${S.open.report ? `<div class="sec-body">
+      <p>Builds a one-page capacity report and opens it in a new tab. Press Ctrl+P / &#8984;P &rarr; Save as PDF.</p>
+      <div class="report-row">
+        <button class="btn btn-g" onclick="genReport()" ${S.rptState==='loading'?'disabled':''}>${rTxt}</button>
+        ${S.rptState==='done' ? '<span style="font-size:11px;color:#94a3b8">In the new tab: Ctrl+P &rarr; Save as PDF</span>' : ''}
+      </div>
+    </div>` : ''}
+  </div>`;
+
+  h += `<div class="disclaimer">This is a planning forecast, not a commitment. Capacity models surface tradeoffs and enable conversation &mdash; they don&rsquo;t predict the future.</div>`;
+
+  document.getElementById('root').innerHTML = h;
+
+  if (S.editIdx !== null) {
+    const inp = document.getElementById('mi' + S.editIdx);
+    if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  }
+}
+
+// ─── event handlers ───────────────────────────────────────────────────────────
+function tog(k)    { S.open[k] = !S.open[k]; render(); }
+function setL(k,v) { S[k] = parseFloat(v); render(); }  // parseFloat ensures number
+function resetData(){ S.connected=false; S.members=[]; S.velocity=[]; render(); }
+
+function loadSample() {
+  S.members    = [
+    {name:'Anna K.',    role:'Dev',    avail:100},
+    {name:'Mikkel S.',  role:'Dev',    avail:80},
+    {name:'Sarah L.',   role:'Dev',    avail:60},
+    {name:'Jonas P.',   role:'QA',     avail:100},
+    {name:'Camille R.', role:'Design', avail:50},
+  ];
+  S.teamName   = 'Payments Team';
+  S.sprintName = 'Sprint 24.3.2';
+  S.velocity   = [42, 38, 45];
+  S.carryOver  = 8;
+  S.connected  = true;
+  render();
+}
+
+// ─── PDF export ───────────────────────────────────────────────────────────────
+function genReport() {
+  S.rptState = 'loading';
+  render();
+  setTimeout(() => {
+    try {
+      const C = compute();
+      if (!C) { S.rptState='error'; render(); return; }
+
+      const svg     = buildSVG(C);
+      const svgBlob = new Blob([svg], {type:'image/svg+xml;charset=utf-8'});
+      const svgURL  = URL.createObjectURL(svgBlob);
+      const img     = new Image();
+
+      img.onload = () => {
+        const canvas  = document.createElement('canvas');
+        canvas.width  = 794 * 2;
+        canvas.height = 1123 * 2;
+        const ctx     = canvas.getContext('2d');
+        ctx.scale(2, 2);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(svgURL);
+
+        // Use data URI — works from file:// without CORS issues
+        const dataURI = canvas.toDataURL('image/png');
+        const fn      = 'capacity-report-' + S.teamName.replace(/\s+/g,'-').toLowerCase() + '.pdf';
+        const win     = window.open('', '_blank');
+
+        if (!win) {
+          // Popup blocked — download as PNG instead
+          const a = document.createElement('a');
+          a.href     = dataURI;
+          a.download = fn.replace('.pdf', '.png');
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          S.rptState = 'done';
+          render();
+          return;
+        }
+
+        win.document.write(`<!DOCTYPE html><html><head><title>${fn}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#fff}
+img{display:block;width:100%;max-width:794px;margin:0 auto}
+#bar{background:#0f172a;padding:12px 20px;display:flex;align-items:center;gap:16px;font-family:sans-serif}
+@media print{#bar{display:none}@page{size:A4;margin:0}img{max-width:none;width:100%}}
+</style></head><body>
+<div id="bar">
+  <span style="color:#e2e8f0;font-size:14px">Press <b>Ctrl+P</b> / <b>&#8984;P</b> &rarr; <b>Save as PDF</b></span>
+  <button onclick="window.print()" style="background:#059669;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:13px">Print / Save as PDF</button>
+</div>
+<img src="${dataURI}"/>
+</body></html>`);
+        win.document.close();
+        S.rptState = 'done';
+        render();
+        setTimeout(() => { S.rptState='idle'; render(); }, 6000);
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(svgURL);
+        S.rptState = 'error';
+        render();
+      };
+      img.src = svgURL;
+
+    } catch(err) {
+      console.error('Report error:', err);
+      S.rptState = 'error';
+      render();
+      setTimeout(() => { S.rptState='idle'; render(); }, 3000);
+    }
+  }, 60);
+}
+
+// ─── SVG builder ─────────────────────────────────────────────────────────────
+function buildSVG(C) {
+  const W=794,H=1123,PAD=36,CW=W-PAD*2,SP=S.spToH;
+  const dU  = S.unit==='sp'?'SP':'hrs';
+  const del = S.unit==='sp'?(S.view==='sprint'?C.delSP:C.qSP):(S.view==='sprint'?C.delH:C.qH);
+  const rC  = C.risk==='High'?'#ef4444':C.risk==='Medium'?'#f59e0b':'#10b981';
+  const wf  = [
+    {l:'Gross Hours',     v:C.teamGross,c:'#64748b'},
+    {l:'After Focus',     v:C.focused,  c:'#3b82f6'},
+    {l:'New Dev Pool',    v:C.newDev,   c:'#06b6d4'},
+    {l:'After Tech Debt', v:C.aftTD,    c:'#8b5cf6'},
+    {l:'After Ext. Dep.', v:C.aftED,    c:'#f59e0b'},
+    {l:'Deliverable',     v:C.delH,     c:'#10b981'},
+  ];
+  const mx  = wf[0].v;
+  const mets = [
+    {l:'Deliverable', v:del.toFixed(1),                               u:dU, c:'#10b981'},
+    {l:'Availability',v:Math.round(C.avgAvail)+'%',                   u:'', c:'#3b82f6'},
+    {l:'Tech Debt',   v:(S.unit==='sp'?C.tdSP:C.tdH).toFixed(1),     u:dU, c:'#8b5cf6'},
+    {l:'Ops Budget',  v:(S.unit==='sp'?C.opsSP:C.ops).toFixed(1),    u:dU, c:'#06b6d4'},
+    {l:'Risk',        v:C.risk,                                       u:'', c:rC},
+  ];
+  const e  = [];
+  const r  = (x,y,w,h,f,rx=4) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}" rx="${rx}"/>`;
+  const tx = (x,y,s,sz,f,fw='normal',a='start') =>
+    `<text x="${x}" y="${y}" font-size="${sz}" fill="${f}" font-weight="${fw}" text-anchor="${a}" font-family="Helvetica,Arial,sans-serif">${s}</text>`;
+  const ln = (x1,y1,x2,y2,c) =>
+    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="0.8"/>`;
+
+  e.push(r(0,0,W,H,'#f8fafc',0));
+  let y = PAD;
+
+  // header
+  e.push(r(PAD,y,CW,64,'#fff',8));
+  e.push(`<rect x="${PAD}" y="${y}" width="${CW}" height="64" fill="none" stroke="#e2e8f0" stroke-width="1" rx="8"/>`);
+  e.push(r(PAD,y,6,64,'#059669',4));
+  e.push(tx(PAD+18,y+38,S.teamName,22,'#0f172a','bold'));
+  e.push(tx(PAD+18,y+55,S.sprintName+'  \u00b7  Capacity Planning Report',12,'#64748b'));
+  e.push(r(W-PAD-118,y+20,110,22,'#f0fdf8',6));
+  e.push(`<rect x="${W-PAD-118}" y="${y+20}" width="110" height="22" fill="none" stroke="#059669" stroke-width="1" rx="6"/>`);
+  e.push(tx(W-PAD-63,y+35,'CAPACITY REPORT',9,'#059669','bold','middle'));
+  y += 82;
+
+  const slbl = (s,yy) => {
+    e.push(tx(PAD,yy,s.toUpperCase(),10,'#94a3b8','bold'));
+    e.push(ln(PAD+s.length*6.6+10,yy-3,PAD+CW,yy-3,'#e2e8f0'));
+  };
+
+  // metrics
+  slbl('Key Metrics',y); y+=8;
+  const gap=8, cw=(CW-gap*4)/5, ch=72;
+  mets.forEach((m,i) => {
+    const cx=PAD+i*(cw+gap);
+    e.push(r(cx,y,cw,ch,'#fff',6));
+    e.push(`<rect x="${cx}" y="${y}" width="${cw}" height="${ch}" fill="none" stroke="#e2e8f0" stroke-width="1" rx="6"/>`);
+    e.push(r(cx,y,5,ch,m.c,3));
+    e.push(tx(cx+12,y+22,m.l.toUpperCase(),9,'#94a3b8','bold'));
+    e.push(tx(cx+12,y+54,m.v,i===0?26:20,m.c,'bold'));
+    if(m.u) e.push(tx(cx+12+m.v.length*(i===0?15:11),y+54,m.u,11,'#94a3b8'));
+  });
+  y += ch+24;
+
+  // waterfall
+  slbl('Capacity Waterfall',y); y+=10;
+  const LW=140,BH=22,BG=10,BW=CW-LW-56;
+  wf.forEach((row,i) => {
+    const fw  = Math.max(4,(row.v/mx)*BW);
+    const spv = (row.v/SP).toFixed(0);
+    const last = i===wf.length-1;
+    e.push(tx(PAD,y+BH-4,row.l,12,last?row.c:'#334155',last?'bold':'normal'));
+    e.push(r(PAD+LW,y,BW,BH,'#f1f5f9',4));
+    e.push(r(PAD+LW,y,fw,BH,row.c,4));
+    e.push(tx(PAD+LW+BW+8,y+BH-4,spv+' SP',11,'#64748b'));
+    y += BH+BG;
+  });
+  y += 16;
+
+  // team
+  slbl('Team Availability',y); y+=8;
+  e.push(r(PAD,y,CW,24,'#f1f5f9',4));
+  [[PAD+10,'NAME'],[PAD+220,'ROLE'],[W-PAD-168,'AVAILABILITY']].forEach(([x,l]) =>
+    e.push(tx(x,y+16,l,9,'#94a3b8','bold')));
+  y += 24;
+  S.members.forEach((m,i) => {
+    e.push(r(PAD,y,CW,36,i%2===0?'#fff':'#f8fafc',0));
+    const ac=AVCOLS[i%AVCOLS.length];
+    e.push(`<circle cx="${PAD+18}" cy="${y+18}" r="11" fill="${ac}"/>`);
+    e.push(tx(PAD+18,y+22,m.name.charAt(0),11,'#fff','bold','middle'));
+    e.push(tx(PAD+36,y+23,m.name,13,'#0f172a'));
+    e.push(tx(PAD+220,y+23,m.role,12,'#64748b'));
+    const aC=m.avail>=80?'#059669':m.avail>=60?'#f59e0b':'#ef4444';
+    const bx=W-PAD-168, by=y+11;
+    e.push(r(bx,by,120,14,'#e2e8f0',4));
+    e.push(r(bx,by,120*m.avail/100,14,aC,4));
+    e.push(tx(bx+128,y+23,m.avail+'%',13,aC,'bold'));
+    y += 36;
+  });
+  y += 24;
+
+  // levers
+  slbl('Planning Levers',y); y+=10;
+  const ld=[
+    {l:'Focus Factor', v:S.focusFactor+'%', c:'#2563eb'},
+    {l:'New Dev Split', v:S.newDevPct+'%',  c:'#06b6d4'},
+    {l:'Tech Debt',    v:S.techDebt+'%',    c:'#8b5cf6'},
+    {l:'Ext. Dep.',    v:S.extDep+'%',      c:'#f59e0b'},
+    {l:'Carry-over',   v:S.carryOver+' SP', c:'#ef4444'},
+  ];
+  const lw=(CW-gap*4)/5, lh=52;
+  ld.forEach((lv,i) => {
+    const lx=PAD+i*(lw+gap);
+    e.push(r(lx,y,lw,lh,'#fff',6));
+    e.push(`<rect x="${lx}" y="${y}" width="${lw}" height="${lh}" fill="none" stroke="#e2e8f0" stroke-width="1" rx="6"/>`);
+    e.push(tx(lx+lw/2,y+30,lv.v,16,lv.c,'bold','middle'));
+    e.push(tx(lx+lw/2,y+46,lv.l.toUpperCase(),8,'#94a3b8','normal','middle'));
+  });
+  y += lh+24;
+
+  // disclaimer
+  e.push(ln(PAD,y,PAD+CW,y,'#e2e8f0')); y+=14;
+  e.push(tx(W/2,y,"This is a planning forecast, not a commitment. Capacity models surface tradeoffs \u2014 they don't predict the future.",10,'#94a3b8','normal','middle'));
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${e.join('')}</svg>`;
+}
+
+// ─── init ─────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
