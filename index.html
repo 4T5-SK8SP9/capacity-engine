@@ -81,6 +81,8 @@ const ROLES  = ['Dev','QA','Design','Lead','Ops','Data','Other'];
 // ─── state ────────────────────────────────────────────────────────────────────
 const S = {
   connected: false,
+  jiraMode: false,
+  showPaste: false,
   unit: 'sp',
   view: 'sprint',
   teamName: 'Your Team',
@@ -217,31 +219,48 @@ function render() {
     </div>
     <div class="header-right">
       <div class="tgroup">
-        <button class="tbtn${S.unit==='sp'?' on':''}" onclick="S.unit='sp';render()">Story Points</button>
-        <button class="tbtn${S.unit==='hours'?' on':''}" onclick="S.unit='hours';render()">Hours</button>
+        <button class="tbtn${S.unit==='sp'?' on':''}" onclick="S.unit='sp';saveState();render()">Story Points</button>
+        <button class="tbtn${S.unit==='hours'?' on':''}" onclick="S.unit='hours';saveState();render()">Hours</button>
       </div>
       <div class="tgroup">
-        <button class="tbtn${S.view==='sprint'?' on':''}" onclick="S.view='sprint';render()">Sprint</button>
-        <button class="tbtn${S.view==='quarter'?' on':''}" onclick="S.view='quarter';render()">Quarter</button>
+        <button class="tbtn${S.view==='sprint'?' on':''}" onclick="S.view='sprint';saveState();render()">Sprint</button>
+        <button class="tbtn${S.view==='quarter'?' on':''}" onclick="S.view='quarter';saveState();render()">Quarter</button>
       </div>
     </div>
   </div>`;
 
   // data source
+  const dsBadge = S.jiraMode ? '&#9679; Jira Data' : '&#9679; Sample Data';
   h += `<div class="card">
     <div class="ds-hdr">
       <span style="font-size:18px">&#9889;</span>
       <span class="ds-title">Data Source</span>
-      ${S.connected ? `<span class="badge">&#9679; Sample Data</span>` : ''}
+      ${S.connected ? `<span class="badge">${dsBadge}</span>` : ''}
     </div>
-    ${!S.connected
-      ? `<div style="display:flex;gap:10px">
-           <button class="btn btn-g" onclick="loadSample()">Load Sample Data</button>
-         </div>`
-      : `<div style="display:flex;gap:10px;align-items:center">
-           <span style="font-size:13px;color:#64748b">Sample data loaded. Edit freely below.</span>
-           <button class="btn-sm" onclick="resetData()">Reset</button>
-         </div>`
+    ${!S.connected ? `
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-g" onclick="loadSample()">Load Sample Data</button>
+        <button class="btn btn-ghost" onclick="S.showPaste=!S.showPaste;render()">&#128279; Paste Jira JSON</button>
+      </div>
+      ${S.showPaste ? `
+        <div style="margin-top:12px">
+          <p style="font-size:12px;color:#64748b;margin-bottom:6px">
+            In this Claude project, ask: <em>"Pull my current sprint data from Jira for the Capacity Engine"</em> — then paste the JSON here:
+          </p>
+          <textarea id="jira-paste" rows="5"
+            style="width:100%;font-size:12px;font-family:monospace;border:1px solid #e2e8f0;border-radius:8px;padding:8px;outline:none;resize:vertical;color:#334155"
+            placeholder='{"teamName":"...","sprintName":"...","teamMembers":[...],...}'></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-g" onclick="loadJiraJSON()">Load Data</button>
+            <button class="btn-sm" onclick="S.showPaste=false;render()">Cancel</button>
+          </div>
+          <p id="paste-error" style="color:#ef4444;font-size:12px;margin-top:6px;display:none"></p>
+        </div>` : ''}` :
+      `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:13px;color:#64748b">${S.jiraMode ? 'Jira data loaded.' : 'Sample data loaded.'} Edit freely below.</span>
+        <button class="btn-sm" onclick="S.showPaste=true;S.connected=false;render()">&#8635; Update from Jira</button>
+        <button class="btn-sm" onclick="resetData()">Reset</button>
+      </div>`
     }
   </div>`;
 
@@ -318,25 +337,25 @@ function render() {
               ${S.editIdx===i
                 ? `<input class="mname-inp" id="mi${i}" value="${m.name}"
                     oninput="S.members[${i}].name=this.value"
-                    onblur="S.editIdx=null;render()"
+                    onblur="S.members[${i}] && (S.members[${i}].name=this.value); saveState(); S.editIdx=null;render()"
                     onkeydown="if(event.key==='Enter'){S.editIdx=null;render()}">`
                 : `<span class="mname" onclick="S.editIdx=${i};render()" title="Click to edit">
                     ${m.name} <span style="font-size:10px;color:#cbd5e1">&#9998;</span>
                   </span>`
               }
-              <select class="role-sel" onchange="S.members[${i}].role=this.value;render()">
+              <select class="role-sel" onchange="S.members[${i}].role=this.value;saveState();render()">
                 ${ROLES.map(r=>`<option${m.role===r?' selected':''}>${r}</option>`).join('')}
               </select>
             </div>
           </div>
           <div class="mrhs">
             <input type="range" class="mslider" min="0" max="100" value="${m.avail}"
-              oninput="S.members[${i}].avail=parseInt(this.value);render()"/>
+              oninput="S.members[${i}].avail=parseInt(this.value);saveState();render()"/>
             <span class="apct">${m.avail}%</span>
-            <button class="rmbtn" onclick="S.members.splice(${i},1);render()">&times;</button>
+            <button class="rmbtn" onclick="S.members.splice(${i},1);saveState();render()">&times;</button>
           </div>
         </div>`).join('')}
-      <button class="btn-dash" onclick="S.members.push({name:'Person '+(S.members.length+1),role:'Dev',avail:100});render()">
+      <button class="btn-dash" onclick="S.members.push({name:'Person '+(S.members.length+1),role:'Dev',avail:100});saveState();render()">
         + Add Team Member
       </button>
       ${S.velocity.length && C ? `
@@ -390,10 +409,33 @@ function render() {
   }
 }
 
+// ─── localStorage persistence ─────────────────────────────────────────────────
+const STORAGE_KEY = 'capacity-engine-v1';
+const SAVE_KEYS = [
+  'connected','jiraMode','unit','view','teamName','sprintName','members','velocity',
+  'sprintWeeks','focusFactor','newDevPct','extDep','techDebt','carryOver',
+  'ceremony','hpd','spToH','sprintsPQ',
+];
+function saveState() {
+  try {
+    const data = {};
+    SAVE_KEYS.forEach(k => data[k] = S[k]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch(e) {}
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    SAVE_KEYS.forEach(k => { if (data[k] !== undefined) S[k] = data[k]; });
+  } catch(e) {}
+}
+
 // ─── event handlers ───────────────────────────────────────────────────────────
 function tog(k)    { S.open[k] = !S.open[k]; render(); }
-function setL(k,v) { S[k] = parseFloat(v); render(); }  // parseFloat ensures number
-function resetData(){ S.connected=false; S.members=[]; S.velocity=[]; render(); }
+function setL(k,v) { S[k] = parseFloat(v); saveState(); render(); }
+function resetData(){ S.connected=false; S.members=[]; S.velocity=[]; saveState(); render(); }
 
 function loadSample() {
   S.members    = [
@@ -408,7 +450,37 @@ function loadSample() {
   S.velocity   = [42, 38, 45];
   S.carryOver  = 8;
   S.connected  = true;
+  saveState();
   render();
+}
+
+// ─── Jira JSON loader ────────────────────────────────────────────────────────
+function loadJiraJSON() {
+  const raw = document.getElementById('jira-paste');
+  if (!raw) return;
+  try {
+    const d = JSON.parse(raw.value.trim());
+    if (d.teamName)    S.teamName   = d.teamName;
+    if (d.sprintName)  S.sprintName = d.sprintName;
+    if (d.velocityLast3) S.velocity = d.velocityLast3;
+    if (d.carryOverPoints !== undefined) S.carryOver = Number(d.carryOverPoints);
+    if (d.sprintLengthDays) S.sprintWeeks = d.sprintLengthDays / 5;
+    if (d.teamMembers && Array.isArray(d.teamMembers)) {
+      S.members = d.teamMembers.map(m => ({
+        name:  m.name  || m.displayName || 'Unknown',
+        role:  m.role  || 'Dev',
+        avail: m.availabilityPct !== undefined ? Number(m.availabilityPct) : 100,
+      }));
+    }
+    S.connected  = true;
+    S.jiraMode   = true;
+    S.showPaste  = false;
+    saveState();
+    render();
+  } catch(e) {
+    const err = document.getElementById('paste-error');
+    if (err) { err.textContent = 'Invalid JSON — check the format and try again.'; err.style.display='block'; }
+  }
 }
 
 // ─── PDF export ───────────────────────────────────────────────────────────────
@@ -612,6 +684,7 @@ function buildSVG(C) {
 }
 
 // ─── init ─────────────────────────────────────────────────────────────────────
+loadState();
 render();
 </script>
 </body>
