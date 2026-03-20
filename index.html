@@ -540,91 +540,174 @@ function loadJiraJSON() {
 }
 
 // ─── PDF export ───────────────────────────────────────────────────────────────
-function dbg(msg) {
-  console.log('[PDF]', msg);
-  const el = document.getElementById('debug-out');
-  if (el) el.innerHTML += msg + '<br>';
-}
 function genReport() {
   S.rptState = 'loading';
   S.rptError = '';
   render();
-  const dbgEl = document.getElementById('debug-out');
-  if (dbgEl) dbgEl.innerHTML = '';
   setTimeout(() => {
     try {
-      dbg('Step 1: computing...');
       const C = compute();
-      if (!C) throw new Error('No data to report');
-      dbg('Step 1 OK: data computed');
+      if (!C) throw new Error('No data loaded');
 
-      dbg('Step 2: building SVG...');
-      const svg = buildSVG(C);
-      if (!svg) throw new Error('SVG build returned empty');
-      dbg('Step 2 OK: SVG length=' + svg.length);
+      const win = window.open('', '_blank');
+      if (!win) throw new Error('Pop-up blocked — please allow pop-ups for this site');
 
-      dbg('Step 3: encoding to base64...');
-      const svgB64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
-      dbg('Step 3 OK: base64 length=' + svgB64.length);
-      const img = new Image();
+      const du   = S.unit === 'sp' ? 'SP' : 'hrs';
+      const get  = (a, b) => S.unit === 'sp' ? a : b;
+      const delV = S.view === 'sprint' ? get(C.delSP, C.delH) : get(C.qSP, C.qH);
+      const fmtN = v => typeof v === 'number' ? (v % 1 !== 0 ? v.toFixed(1) : v) : v;
+      const fmtD = s => { if (!s) return ''; const d = new Date(s + 'T12:00:00'); return d.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}); };
+      const dateStr = (S.startDate && S.endDate) ? fmtD(S.startDate) + ' – ' + fmtD(S.endDate) : S.startDate ? 'From ' + fmtD(S.startDate) : '';
+      const riskColor = C.risk === 'High' ? '#ef4444' : C.risk === 'Medium' ? '#f59e0b' : '#10b981';
 
-      img.onload = () => {
-        dbg('Step 4 OK: image loaded, drawing to canvas...');
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width  = 794 * 2;
-          canvas.height = 1123 * 2;
-          const ctx = canvas.getContext('2d');
-          ctx.scale(2, 2);
-          ctx.drawImage(img, 0, 0);
-          dbg('Step 5: converting canvas to PNG...');
-          const dataURI = canvas.toDataURL('image/png');
-          dbg('Step 5 OK: PNG length=' + dataURI.length);
-          const fn = 'capacity-report-' + S.teamName.replace(/\s+/g, '-').toLowerCase() + '.pdf';
-          dbg('Step 6: opening new tab...');
-          const win = window.open('', '_blank');
-          if (!win) {
-            // Popup blocked — download PNG directly
-            const a = document.createElement('a');
-            a.href = dataURI;
-            a.download = fn.replace('.pdf', '.png');
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            S.rptState = 'done';
-            render();
-            return;
-          }
-          win.document.write('<!DOCTYPE html><html><head><title>' + fn + '</title>'
-            + '<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#fff}'
-            + 'img{display:block;width:100%;max-width:794px;margin:0 auto}'
-            + '#bar{background:#0f172a;padding:12px 20px;display:flex;align-items:center;gap:16px;font-family:sans-serif}'
-            + '@media print{#bar{display:none}@page{size:A4;margin:0}img{max-width:none;width:100%}}'
-            + '</style></head><body>'
-            + '<div id="bar">'
-            + '<span style="color:#e2e8f0;font-size:14px">Press <b>Ctrl+P</b> / <b>Cmd+P</b> then choose <b>Save as PDF</b></span>'
-            + '<button onclick="window.print()" style="background:#059669;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:13px">Print / Save as PDF</button>'
-            + '</div>'
-            + '<img src="' + dataURI + '"/>'
-            + '</body></html>');
-          win.document.close();
-          S.rptState = 'done';
-          render();
-          setTimeout(() => { S.rptState = 'idle'; render(); }, 6000);
-        } catch(e) {
-          console.error('Canvas error:', e);
-          S.rptState = 'error';
-          S.rptError = 'Canvas error: ' + e.message;
-          render();
-        }
-      };
-      img.onerror = () => {
-        dbg('ERROR: image failed to load from base64 SVG');
-        S.rptState = 'error';
-        S.rptError = 'SVG image failed to load';
-        render();
-      };
-      img.src = svgB64;
+      const wf = [
+        {label:'Gross Hours',     v:C.teamGross, c:'#64748b'},
+        {label:'After Focus',     v:C.focused,   c:'#3b82f6'},
+        {label:'New Dev Pool',    v:C.newDev,    c:'#06b6d4'},
+        {label:'After Tech Debt', v:C.aftTD,     c:'#8b5cf6'},
+        {label:'After Ext. Dep.', v:C.aftED,     c:'#f59e0b'},
+        {label:'Deliverable',     v:C.delH,      c:'#10b981'},
+      ];
+      const maxV = wf[0].v;
+
+      const mets = [
+        {label:'Deliverable Capacity', value:fmtN(delV),                              unit:du,  color:'#059669'},
+        {label:'Avg Availability',     value:Math.round(C.avgAvail)+'%',              unit:'',  color:'#3b82f6'},
+        {label:'Tech Debt Budget',     value:fmtN(get(C.tdSP,C.tdH)),                unit:du,  color:'#8b5cf6'},
+        {label:'Ops Budget',           value:fmtN(get(C.opsSP,C.ops)),               unit:du,  color:'#06b6d4'},
+        {label:'Risk Level',           value:C.risk,                                 unit:'',  color:riskColor},
+      ];
+
+      const metricsHtml = mets.map(m => `
+        <div style="flex:1 1 130px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid ${m.color};border-radius:8px;padding:14px 16px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:6px">${m.label}</div>
+          <div style="font-family:'Courier New',monospace;font-size:24px;font-weight:700;color:${m.color}">${m.value}<span style="font-size:13px;color:#94a3b8;margin-left:4px">${m.unit}</span></div>
+        </div>`).join('');
+
+      const wfHtml = wf.map(row => {
+        const pct = Math.max(2, (row.v / maxV) * 100);
+        const spv = (row.v / (S.spToH || 6)).toFixed(0);
+        return `<div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+            <span style="font-weight:600;color:${row.c}">${row.label}</span>
+            <span style="color:#64748b;font-family:'Courier New',monospace">${S.unit==='sp' ? spv+' SP' : row.v.toFixed(0)+' hrs'}</span>
+          </div>
+          <div style="height:16px;background:#f1f5f9;border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${row.c};opacity:.85;border-radius:4px"></div>
+          </div>
+        </div>`;
+      }).join('');
+
+      const teamHtml = S.members.map((m, i) => {
+        const ac = ['#f59e0b','#3b82f6','#10b981','#8b5cf6','#ec4899','#06b6d4'][i%6];
+        const barColor = m.avail >= 80 ? '#059669' : m.avail >= 60 ? '#f59e0b' : '#ef4444';
+        return `<tr style="background:${i%2===0?'#fff':'#f8fafc'}">
+          <td style="padding:10px 12px;display:flex;align-items:center;gap:10px">
+            <div style="width:28px;height:28px;border-radius:6px;background:${ac};display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:12px;flex-shrink:0">${m.name.charAt(0)}</div>
+            <span style="font-size:13px;font-weight:600">${m.name}</span>
+          </td>
+          <td style="padding:10px 12px;font-size:12px;color:#64748b">${m.role}</td>
+          <td style="padding:10px 16px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="flex:1;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden">
+                <div style="height:100%;width:${m.avail}%;background:${barColor};border-radius:4px"></div>
+              </div>
+              <span style="font-size:12px;font-weight:700;color:${barColor};width:36px">${m.avail}%</span>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+
+      const levers = [
+        {l:'Focus Factor',    v:S.focusFactor+'%',  c:'#2563eb'},
+        {l:'New Dev Split',   v:S.newDevPct+'%',    c:'#06b6d4'},
+        {l:'Tech Debt',       v:S.techDebt+'%',     c:'#8b5cf6'},
+        {l:'Ext. Dep. Buffer',v:S.extDep+'%',       c:'#f59e0b'},
+        {l:'Carry-over',      v:S.carryOver+' SP',  c:'#ef4444'},
+      ];
+      const leversHtml = levers.map(lv => `
+        <div style="flex:1 1 100px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center">
+          <div style="font-family:'Courier New',monospace;font-size:18px;font-weight:700;color:${lv.c}">${lv.v}</div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-top:4px">${lv.l}</div>
+        </div>`).join('');
+
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
+<title>Capacity Report — ${S.teamName}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #0f172a; }
+  #bar { background: #0f172a; padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+  #page { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+  .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0; }
+  table { width: 100%; border-collapse: collapse; }
+  td { vertical-align: middle; }
+  @media print {
+    #bar { display: none; }
+    body { background: #fff; }
+    #page { padding: 20px; }
+    @page { size: A4; margin: 12mm; }
+  }
+</style>
+</head><body>
+<div id="bar">
+  <span style="color:#e2e8f0;font-size:14px">Press <b>Ctrl+P</b> / <b>Cmd+P</b> → <b>Save as PDF</b></span>
+  <button onclick="window.print()" style="background:#059669;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;margin-left:auto">🖨 Print / Save as PDF</button>
+</div>
+<div id="page">
+  <!-- Header -->
+  <div style="background:#fff;border:1px solid #e2e8f0;border-left:5px solid #059669;border-radius:10px;padding:20px 24px;margin-bottom:24px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+      <div>
+        <h1 style="font-size:22px;font-weight:700;color:#0f172a">${S.teamName}</h1>
+        <p style="font-size:13px;color:#64748b;margin-top:4px">${S.sprintName}${dateStr ? ' &nbsp;·&nbsp; ' + dateStr : ''}</p>
+      </div>
+      <div style="background:#f0fdf8;border:1px solid #059669;border-radius:6px;padding:6px 14px;font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px">Capacity Report</div>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div style="margin-bottom:24px">
+    <div class="section-title">Key Metrics</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">${metricsHtml}</div>
+  </div>
+
+  <!-- Waterfall -->
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px 24px;margin-bottom:24px">
+    <div class="section-title">Capacity Waterfall</div>
+    ${wfHtml}
+  </div>
+
+  <!-- Team -->
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:24px">
+    <div style="padding:16px 24px 0"><div class="section-title">Team Availability</div></div>
+    <table>
+      <thead><tr style="background:#f8fafc">
+        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Name</th>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Role</th>
+        <th style="padding:8px 16px;text-align:left;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Availability</th>
+      </tr></thead>
+      <tbody>${teamHtml}</tbody>
+    </table>
+  </div>
+
+  <!-- Levers -->
+  <div style="margin-bottom:24px">
+    <div class="section-title">Planning Levers</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">${leversHtml}</div>
+  </div>
+
+  <!-- Disclaimer -->
+  <p style="font-size:11px;color:#94a3b8;text-align:center;font-style:italic;padding-top:16px;border-top:1px solid #e2e8f0">
+    This is a planning forecast, not a commitment. Capacity models surface tradeoffs and enable conversation — they don't predict the future.
+  </p>
+</div>
+</body></html>`;
+
+      win.document.write(html);
+      win.document.close();
+      S.rptState = 'done';
+      render();
+      setTimeout(() => { S.rptState = 'idle'; render(); }, 6000);
 
     } catch(err) {
       console.error('Report error:', err);
