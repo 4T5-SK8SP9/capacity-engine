@@ -230,7 +230,7 @@ function render() {
   let h = '';
 
   // header
-  const sprintLabel = S.view === 'sprint' ? S.sprintName : 'Quarterly';
+  const sprintLabel = S.view === 'sprint' ? (S.sprintName || 'Sprint') : 'Quarterly';
   const dateHtml = (S.startDate || S.endDate)
     ? '<span style="font-size:11px;color:#94a3b8;font-style:italic">' + formatDateRange(S.startDate, S.endDate) + '</span>'
     : '<span style="font-size:11px;color:#cbd5e1;font-style:italic">Add sprint dates above</span>';
@@ -243,10 +243,12 @@ function render() {
             value="${S.teamName}" title="Click to edit team name"
             oninput="S.teamName=this.value" onchange="saveState()"/>
           <span style="color:#cbd5e1;font-size:13px">&middot;</span>
-          <input class="hdr-field" style="width:240px"
-            value="${sprintLabel}"
-            title="Click to edit label"
-            oninput="S.sprintName=this.value" onchange="saveState()"/>
+          ${S.view === 'sprint'
+            ? `<input class="hdr-field" style="width:200px" value="${S.sprintName||'Sprint'}"
+                title="Click to edit sprint name" placeholder="Sprint name"
+                oninput="S.sprintName=this.value" onchange="saveState()"/>`
+            : `<span class="hdr-field" style="width:auto;border-bottom:none;cursor:default;color:#64748b;font-size:13px">Quarterly</span>`
+          }
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-size:11px;color:#94a3b8;font-family:'Space Mono',monospace">FROM</span>
