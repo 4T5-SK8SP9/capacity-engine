@@ -230,6 +230,10 @@ function render() {
   let h = '';
 
   // header
+  const sprintLabel = S.view === 'sprint' ? S.sprintName : ('Q Projection (' + S.sprintsPQ + ' sprints)');
+  const dateHtml = (S.startDate || S.endDate)
+    ? '<span style="font-size:11px;color:#94a3b8;font-style:italic">' + formatDateRange(S.startDate, S.endDate) + '</span>'
+    : '<span style="font-size:11px;color:#cbd5e1;font-style:italic">Add sprint dates above</span>';
   h += `<div class="header">
     <div>
       <h1>Capacity Engine</h1>
@@ -239,8 +243,8 @@ function render() {
             value="${S.teamName}" title="Click to edit team name"
             oninput="S.teamName=this.value" onchange="saveState()"/>
           <span style="color:#cbd5e1;font-size:13px">&middot;</span>
-          <input class="hdr-field" style="width:260px"
-            value="${S.view==='sprint' ? S.sprintName : 'Q Projection ('+S.sprintsPQ+' sprints)'}"
+          <input class="hdr-field" style="width:240px"
+            value="${sprintLabel}"
             title="Click to edit label"
             oninput="S.sprintName=this.value" onchange="saveState()"/>
         </div>
@@ -251,7 +255,7 @@ function render() {
           <span style="font-size:11px;color:#94a3b8;font-family:'Space Mono',monospace">TO</span>
           <input class="hdr-field" type="date" value="${S.endDate}"
             onchange="S.endDate=this.value;saveState()" style="width:148px;font-size:12px"/>
-          ${S.startDate||S.endDate ? '<span style="font-size:11px;color:#94a3b8;font-style:italic">'+formatDateRange(S.startDate,S.endDate)+'</span>' : '<span style="font-size:11px;color:#cbd5e1;font-style:italic">Add sprint dates above</span>'}
+          ${dateHtml}
         </div>
       </div>
     </div>
@@ -543,7 +547,8 @@ function genReport() {
       const C = compute();
       if (!C) { S.rptState='error'; render(); return; }
 
-      const svg     = buildSVG(C);
+      let svg;
+      try { svg = buildSVG(C); } catch(svgErr) { throw new Error('SVG build failed: ' + svgErr.message); }
       if (!svg) throw new Error('SVG build returned empty');
       const svgBlob = new Blob([svg], {type:'image/svg+xml;charset=utf-8'});
       const svgURL  = URL.createObjectURL(svgBlob);
