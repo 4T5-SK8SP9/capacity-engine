@@ -437,8 +437,9 @@ function render() {
       <div class="report-row">
         <button class="btn btn-g" onclick="genReport()" ${S.rptState==='loading'?'disabled':''}>${rTxt}</button>
         ${S.rptState==='done' ? '<span style="font-size:11px;color:#94a3b8">In the new tab: Ctrl+P &rarr; Save as PDF</span>' : ''}
-        ${S.rptState==='error' && S.rptError ? `<span style="font-size:11px;color:#ef4444">${S.rptError}</span>` : ''}
+        ${S.rptState==='error' && S.rptError ? '<span style="font-size:11px;color:#ef4444">'+S.rptError+'</span>' : ''}
       </div>
+      <div id="debug-out" style="margin-top:10px;font-size:11px;font-family:monospace;color:#64748b;line-height:1.8"></div>
     </div>` : ''}
   </div>`;
 
@@ -539,82 +540,102 @@ function loadJiraJSON() {
 }
 
 // ─── PDF export ───────────────────────────────────────────────────────────────
+function dbg(msg) {
+  console.log('[PDF]', msg);
+  const el = document.getElementById('debug-out');
+  if (el) el.innerHTML += msg + '<br>';
+}
 function genReport() {
   S.rptState = 'loading';
+  S.rptError = '';
   render();
+  const dbgEl = document.getElementById('debug-out');
+  if (dbgEl) dbgEl.innerHTML = '';
   setTimeout(() => {
     try {
+      dbg('Step 1: computing...');
       const C = compute();
-      if (!C) { S.rptState='error'; render(); return; }
+      if (!C) throw new Error('No data to report');
+      dbg('Step 1 OK: data computed');
 
-      let svg;
-      try { svg = buildSVG(C); } catch(svgErr) { throw new Error('SVG build failed: ' + svgErr.message); }
+      dbg('Step 2: building SVG...');
+      const svg = buildSVG(C);
       if (!svg) throw new Error('SVG build returned empty');
-      const svgBlob = new Blob([svg], {type:'image/svg+xml;charset=utf-8'});
-      const svgURL  = URL.createObjectURL(svgBlob);
-      const img     = new Image();
+      dbg('Step 2 OK: SVG length=' + svg.length);
+
+      dbg('Step 3: encoding to base64...');
+      const svgB64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+      dbg('Step 3 OK: base64 length=' + svgB64.length);
+      const img = new Image();
 
       img.onload = () => {
-        const canvas  = document.createElement('canvas');
-        canvas.width  = 794 * 2;
-        canvas.height = 1123 * 2;
-        const ctx     = canvas.getContext('2d');
-        ctx.scale(2, 2);
-        ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(svgURL);
-
-        // Use data URI — works from file:// without CORS issues
-        const dataURI = canvas.toDataURL('image/png');
-        const fn      = 'capacity-report-' + S.teamName.replace(/\s+/g,'-').toLowerCase() + '.pdf';
-        const win     = window.open('', '_blank');
-
-        if (!win) {
-          // Popup blocked — download as PNG instead
-          const a = document.createElement('a');
-          a.href     = dataURI;
-          a.download = fn.replace('.pdf', '.png');
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
+        dbg('Step 4 OK: image loaded, drawing to canvas...');
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width  = 794 * 2;
+          canvas.height = 1123 * 2;
+          const ctx = canvas.getContext('2d');
+          ctx.scale(2, 2);
+          ctx.drawImage(img, 0, 0);
+          dbg('Step 5: converting canvas to PNG...');
+          const dataURI = canvas.toDataURL('image/png');
+          dbg('Step 5 OK: PNG length=' + dataURI.length);
+          const fn = 'capacity-report-' + S.teamName.replace(/\s+/g, '-').toLowerCase() + '.pdf';
+          dbg('Step 6: opening new tab...');
+          const win = window.open('', '_blank');
+          if (!win) {
+            // Popup blocked — download PNG directly
+            const a = document.createElement('a');
+            a.href = dataURI;
+            a.download = fn.replace('.pdf', '.png');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            S.rptState = 'done';
+            render();
+            return;
+          }
+          win.document.write('<!DOCTYPE html><html><head><title>' + fn + '</title>'
+            + '<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#fff}'
+            + 'img{display:block;width:100%;max-width:794px;margin:0 auto}'
+            + '#bar{background:#0f172a;padding:12px 20px;display:flex;align-items:center;gap:16px;font-family:sans-serif}'
+            + '@media print{#bar{display:none}@page{size:A4;margin:0}img{max-width:none;width:100%}}'
+            + '</style></head><body>'
+            + '<div id="bar">'
+            + '<span style="color:#e2e8f0;font-size:14px">Press <b>Ctrl+P</b> / <b>Cmd+P</b> then choose <b>Save as PDF</b></span>'
+            + '<button onclick="window.print()" style="background:#059669;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:13px">Print / Save as PDF</button>'
+            + '</div>'
+            + '<img src="' + dataURI + '"/>'
+            + '</body></html>');
+          win.document.close();
           S.rptState = 'done';
           render();
-          return;
+          setTimeout(() => { S.rptState = 'idle'; render(); }, 6000);
+        } catch(e) {
+          console.error('Canvas error:', e);
+          S.rptState = 'error';
+          S.rptError = 'Canvas error: ' + e.message;
+          render();
         }
-
-        win.document.write(`<!DOCTYPE html><html><head><title>${fn}</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#fff}
-img{display:block;width:100%;max-width:794px;margin:0 auto}
-#bar{background:#0f172a;padding:12px 20px;display:flex;align-items:center;gap:16px;font-family:sans-serif}
-@media print{#bar{display:none}@page{size:A4;margin:0}img{max-width:none;width:100%}}
-</style></head><body>
-<div id="bar">
-  <span style="color:#e2e8f0;font-size:14px">Press <b>Ctrl+P</b> / <b>&#8984;P</b> &rarr; <b>Save as PDF</b></span>
-  <button onclick="window.print()" style="background:#059669;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:13px">Print / Save as PDF</button>
-</div>
-<img src="${dataURI}"/>
-</body></html>`);
-        win.document.close();
-        S.rptState = 'done';
-        render();
-        setTimeout(() => { S.rptState='idle'; render(); }, 6000);
       };
-
       img.onerror = () => {
-        URL.revokeObjectURL(svgURL);
+        dbg('ERROR: image failed to load from base64 SVG');
         S.rptState = 'error';
+        S.rptError = 'SVG image failed to load';
         render();
       };
-      img.src = svgURL;
+      img.src = svgB64;
 
     } catch(err) {
-      console.error('Report error:', err.message, err.stack);
+      console.error('Report error:', err);
       S.rptState = 'error';
       S.rptError = err.message;
       render();
-      setTimeout(() => { S.rptState='idle'; S.rptError=''; render(); }, 4000);
+      setTimeout(() => { S.rptState = 'idle'; S.rptError = ''; render(); }, 5000);
     }
   }, 60);
 }
+
 
 // ─── SVG builder ─────────────────────────────────────────────────────────────
 function buildSVG(C) {
