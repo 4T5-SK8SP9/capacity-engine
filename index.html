@@ -12,6 +12,9 @@ body{font-family:'DM Sans',sans-serif;background:#f8fafc;color:#0f172a;padding:2
 .header-right{display:flex;gap:8px;flex-wrap:wrap}
 h1{font-family:'Space Mono',monospace;font-size:24px;font-weight:700;background:linear-gradient(135deg,#059669,#2563eb);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .subtitle{margin-top:4px;color:#64748b;font-size:13px;font-family:'Space Mono',monospace}
+.hdr-field{font-family:'Space Mono',monospace;font-size:13px;color:#64748b;background:transparent;border:none;border-bottom:1px dashed #cbd5e1;outline:none;padding:1px 4px;cursor:pointer;min-width:60px}
+.hdr-field:focus{border-bottom:1px solid #059669;color:#0f172a}
+.hdr-lbl{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-right:3px}
 .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media(max-width:720px){.grid2{grid-template-columns:1fr}}
@@ -87,6 +90,9 @@ const S = {
   view: 'sprint',
   teamName: 'Your Team',
   sprintName: 'Sprint X',
+  startDate: '',
+  endDate: '',
+  editingHeader: null,  // 'teamName' | 'sprintName' | 'startDate' | 'endDate' | null
   members: [],
   velocity: [],
   editIdx: null,
@@ -215,7 +221,24 @@ function render() {
   h += `<div class="header">
     <div>
       <h1>Capacity Engine</h1>
-      <p class="subtitle">${S.teamName} &middot; ${S.view==='sprint'?S.sprintName:`Q Projection (${S.sprintsPQ} sprints)`}</p>
+      <div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <input class="hdr-field" style="font-size:15px;color:#0f172a;font-weight:600;border-bottom-color:#e2e8f0;max-width:200px"
+          value="${S.teamName}" title="Click to edit team name"
+          oninput="S.teamName=this.value" onchange="saveState();render()"/>
+        <span style="color:#cbd5e1;font-family:'Space Mono',monospace">&middot;</span>
+        <input class="hdr-field" value="${S.view==='sprint'?S.sprintName:'Q Projection ('+S.sprintsPQ+' sprints)'}"
+          title="Click to edit sprint / quarter label"
+          oninput="S.sprintName=this.value" onchange="saveState();render()"/>
+        <span style="color:#cbd5e1;font-family:'Space Mono',monospace">&middot;</span>
+        <span class="hdr-lbl">from</span>
+        <input class="hdr-field" type="date" value="${S.startDate}"
+          title="Sprint start date"
+          onchange="S.startDate=this.value;saveState();render()" style="width:130px"/>
+        <span class="hdr-lbl">to</span>
+        <input class="hdr-field" type="date" value="${S.endDate}"
+          title="Sprint end date"
+          onchange="S.endDate=this.value;saveState();render()" style="width:130px"/>
+      </div>
     </div>
     <div class="header-right">
       <div class="tgroup">
@@ -412,7 +435,7 @@ function render() {
 // ─── localStorage persistence ─────────────────────────────────────────────────
 const STORAGE_KEY = 'capacity-engine-v1';
 const SAVE_KEYS = [
-  'connected','jiraMode','unit','view','teamName','sprintName','members','velocity',
+  'connected','jiraMode','unit','view','teamName','sprintName','startDate','endDate','members','velocity',
   'sprintWeeks','focusFactor','newDevPct','extDep','techDebt','carryOver',
   'ceremony','hpd','spToH','sprintsPQ',
 ];
@@ -449,6 +472,12 @@ function loadSample() {
   S.sprintName = 'Sprint 24.3.2';
   S.velocity   = [42, 38, 45];
   S.carryOver  = 8;
+  // set sensible default dates: today → today + 2 weeks
+  const today = new Date();
+  const end   = new Date(today); end.setDate(end.getDate() + 13);
+  const fmt   = d => d.toISOString().split('T')[0];
+  S.startDate = fmt(today);
+  S.endDate   = fmt(end);
   S.connected  = true;
   saveState();
   render();
@@ -465,6 +494,8 @@ function loadJiraJSON() {
     if (d.velocityLast3) S.velocity = d.velocityLast3;
     if (d.carryOverPoints !== undefined) S.carryOver = Number(d.carryOverPoints);
     if (d.sprintLengthDays) S.sprintWeeks = d.sprintLengthDays / 5;
+    if (d.startDate)  S.startDate = d.startDate;
+    if (d.endDate)    S.endDate   = d.endDate;
     if (d.teamMembers && Array.isArray(d.teamMembers)) {
       S.members = d.teamMembers.map(m => ({
         name:  m.name  || m.displayName || 'Unknown',
@@ -595,7 +626,10 @@ function buildSVG(C) {
   e.push(`<rect x="${PAD}" y="${y}" width="${CW}" height="64" fill="none" stroke="#e2e8f0" stroke-width="1" rx="8"/>`);
   e.push(r(PAD,y,6,64,'#059669',4));
   e.push(tx(PAD+18,y+38,S.teamName,22,'#0f172a','bold'));
-  e.push(tx(PAD+18,y+55,S.sprintName+'  \u00b7  Capacity Planning Report',12,'#64748b'));
+  const dateRange = (S.startDate && S.endDate)
+    ? `  \u00b7  ${S.startDate} \u2013 ${S.endDate}`
+    : S.startDate ? `  \u00b7  from ${S.startDate}` : '';
+  e.push(tx(PAD+18,y+55,S.sprintName+'  \u00b7  Capacity Planning Report'+dateRange,11,'#64748b'));
   e.push(r(W-PAD-118,y+20,110,22,'#f0fdf8',6));
   e.push(`<rect x="${W-PAD-118}" y="${y+20}" width="110" height="22" fill="none" stroke="#059669" stroke-width="1" rx="6"/>`);
   e.push(tx(W-PAD-63,y+35,'CAPACITY REPORT',9,'#059669','bold','middle'));
