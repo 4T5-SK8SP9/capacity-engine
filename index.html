@@ -86,6 +86,9 @@ const S = {
   connected: false,
   jiraMode: false,
   showPaste: false,
+  jiraProjectKey: '',
+  jiraSyncing: false,
+  jiraError: '',
   unit: 'sp',
   view: 'sprint',
   teamName: 'Your Team',
@@ -277,17 +280,36 @@ function render() {
       ${S.connected ? `<span class="badge">${dsBadge}</span>` : ''}
     </div>
     ${!S.connected ? `
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:${S.showPaste?'12px':'0'}">
         <button class="btn btn-g" onclick="loadSample()">Load Sample Data</button>
-        <button class="btn btn-ghost" onclick="S.showPaste=!S.showPaste;render()">&#128279; Paste Jira JSON</button>
+        <button class="btn btn-ghost" onclick="S.showPaste='jira';render()">&#9889; Sync from Jira</button>
+        <button class="btn btn-ghost" onclick="S.showPaste='paste';render()">&#128279; Paste Jira JSON</button>
       </div>
-      ${S.showPaste ? `
-        <div style="margin-top:12px">
-          <p style="font-size:12px;color:#64748b;margin-bottom:6px">
-            In this Claude project, ask: <em>"Pull my current sprint data from Jira for the Capacity Engine"</em> — then paste the JSON here:
+
+      ${S.showPaste==='jira' ? `
+        <div style="margin-top:4px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px">
+          <p style="font-size:12px;color:#64748b;margin-bottom:10px">Enter your Jira project key — found in the URL of your Jira board (e.g. <b>MERCH</b>, <b>SFRA</b>, <b>DT</b>)</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input id="jira-key" type="text" placeholder="e.g. MERCH"
+              value="${S.jiraProjectKey}"
+              oninput="S.jiraProjectKey=this.value.toUpperCase()"
+              onkeydown="if(event.key==='Enter')syncFromJira()"
+              style="padding:8px 12px;font-size:13px;font-family:'Space Mono',monospace;font-weight:700;border:1px solid #e2e8f0;border-radius:8px;outline:none;width:140px;text-transform:uppercase"/>
+            <button class="btn btn-g" onclick="syncFromJira()" ${S.jiraSyncing?'disabled':''}>
+              ${S.jiraSyncing ? '&#9203; Syncing...' : '&#9889; Pull Sprint Data'}
+            </button>
+            <button class="btn-sm" onclick="S.showPaste=false;render()">Cancel</button>
+          </div>
+          ${S.jiraError ? `<p style="color:#ef4444;font-size:12px;margin-top:8px">&#9888; ${S.jiraError}</p>` : ''}
+        </div>` : ''}
+
+      ${S.showPaste==='paste' ? `
+        <div style="margin-top:4px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px">
+          <p style="font-size:12px;color:#64748b;margin-bottom:8px">
+            Ask Claude: <em>"Pull my current sprint data from Jira for the Capacity Engine"</em> — paste the JSON response here:
           </p>
-          <textarea id="jira-paste" rows="5"
-            style="width:100%;font-size:12px;font-family:monospace;border:1px solid #e2e8f0;border-radius:8px;padding:8px;outline:none;resize:vertical;color:#334155"
+          <textarea id="jira-paste" rows="4"
+            style="width:100%;font-size:12px;font-family:monospace;border:1px solid #e2e8f0;border-radius:8px;padding:8px;outline:none;resize:vertical;color:#334155;background:#fff"
             placeholder='{"teamName":"...","sprintName":"...","teamMembers":[...],...}'></textarea>
           <div style="display:flex;gap:8px;margin-top:8px">
             <button class="btn btn-g" onclick="loadJiraJSON()">Load Data</button>
@@ -295,9 +317,10 @@ function render() {
           </div>
           <p id="paste-error" style="color:#ef4444;font-size:12px;margin-top:6px;display:none"></p>
         </div>` : ''}` :
+
       `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <span style="font-size:13px;color:#64748b">${S.jiraMode ? 'Jira data loaded.' : 'Sample data loaded.'} Edit freely below.</span>
-        <button class="btn-sm" onclick="S.showPaste=true;S.connected=false;render()">&#8635; Update from Jira</button>
+        <span style="font-size:13px;color:#64748b">${S.jiraMode ? '&#9889; Jira data loaded.' : '&#9679; Sample data loaded.'} Edit freely below.</span>
+        <button class="btn-sm" onclick="S.connected=false;S.showPaste='jira';render()">&#8635; Sync from Jira</button>
         <button class="btn-sm" onclick="resetData()">Reset</button>
       </div>`
     }
@@ -453,7 +476,7 @@ function render() {
 // ─── localStorage persistence ─────────────────────────────────────────────────
 const STORAGE_KEY = 'capacity-engine-v1';
 const SAVE_KEYS = [
-  'connected','jiraMode','unit','view','teamName','sprintName','startDate','endDate','members','velocity',
+  'connected','jiraMode','unit','view','teamName','sprintName','startDate','endDate','members','velocity','jiraProjectKey',
   'sprintWeeks','focusFactor','newDevPct','extDep','techDebt','carryOver',
   'ceremony','hpd','spToH','sprintsPQ',
 ];
@@ -499,6 +522,57 @@ function loadSample() {
   S.connected  = true;
   saveState();
   render();
+}
+
+// ─── Jira live sync ──────────────────────────────────────────────────────────
+const JIRA_API_URL = 'https://capacity-engine.vercel.app/api/jira';
+
+async function syncFromJira() {
+  const key = (S.jiraProjectKey || '').trim().toUpperCase();
+  if (!key) {
+    S.jiraError = 'Please enter a project key first';
+    render();
+    return;
+  }
+  S.jiraSyncing = true;
+  S.jiraError   = '';
+  render();
+  try {
+    const res  = await fetch(`${JIRA_API_URL}?projectKey=${key}`);
+    const data = await res.json();
+    if (!res.ok) {
+      S.jiraError   = data.error || `Error ${res.status}`;
+      S.jiraSyncing = false;
+      render();
+      return;
+    }
+    // Load data into engine
+    if (data.teamName)    S.teamName   = data.teamName;
+    if (data.sprintName)  S.sprintName = data.sprintName;
+    if (data.velocityLast3 && data.velocityLast3.length) S.velocity = data.velocityLast3;
+    if (data.carryOverPoints !== undefined) S.carryOver = Number(data.carryOverPoints);
+    if (data.sprintLengthDays) S.sprintWeeks = Math.round(data.sprintLengthDays / 5 * 2) / 2;
+    if (data.startDate)   S.startDate  = data.startDate;
+    if (data.endDate)     S.endDate    = data.endDate;
+    if (data.teamMembers && data.teamMembers.length) {
+      S.members = data.teamMembers.map(m => ({
+        name:  m.name || m.displayName || 'Unknown',
+        role:  m.role || 'Dev',
+        avail: m.availabilityPct !== undefined ? Number(m.availabilityPct) : 100,
+      }));
+    }
+    S.connected   = true;
+    S.jiraMode    = true;
+    S.jiraSyncing = false;
+    S.showPaste   = false;
+    S.jiraError   = '';
+    saveState();
+    render();
+  } catch(err) {
+    S.jiraError   = 'Connection failed: ' + err.message;
+    S.jiraSyncing = false;
+    render();
+  }
 }
 
 // ─── Jira JSON loader ────────────────────────────────────────────────────────
