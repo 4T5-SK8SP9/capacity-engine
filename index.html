@@ -283,7 +283,6 @@ function render() {
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:${S.showPaste?'12px':'0'}">
         <button class="btn btn-g" onclick="loadSample()">Load Sample Data</button>
         <button class="btn btn-ghost" onclick="S.showPaste='jira';render()">&#9889; Sync from Jira</button>
-        <button class="btn btn-ghost" onclick="S.showPaste='paste';render()">&#128279; Paste Jira JSON</button>
       </div>
 
       ${S.showPaste==='jira' ? `
@@ -301,21 +300,6 @@ function render() {
             <button class="btn-sm" onclick="S.showPaste=false;render()">Cancel</button>
           </div>
           ${S.jiraError ? `<p style="color:#ef4444;font-size:12px;margin-top:8px">&#9888; ${S.jiraError}</p>` : ''}
-        </div>` : ''}
-
-      ${S.showPaste==='paste' ? `
-        <div style="margin-top:4px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px">
-          <p style="font-size:12px;color:#64748b;margin-bottom:8px">
-            Ask Claude: <em>"Pull my current sprint data from Jira for the Capacity Engine"</em> — paste the JSON response here:
-          </p>
-          <textarea id="jira-paste" rows="4"
-            style="width:100%;font-size:12px;font-family:monospace;border:1px solid #e2e8f0;border-radius:8px;padding:8px;outline:none;resize:vertical;color:#334155;background:#fff"
-            placeholder='{"teamName":"...","sprintName":"...","teamMembers":[...],...}'></textarea>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button class="btn btn-g" onclick="loadJiraJSON()">Load Data</button>
-            <button class="btn-sm" onclick="S.showPaste=false;render()">Cancel</button>
-          </div>
-          <p id="paste-error" style="color:#ef4444;font-size:12px;margin-top:6px;display:none"></p>
         </div>` : ''}` :
 
       `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -575,40 +559,7 @@ async function syncFromJira() {
   }
 }
 
-// ─── Jira JSON loader ────────────────────────────────────────────────────────
-function loadJiraJSON() {
-  const raw = document.getElementById('jira-paste');
-  if (!raw) return;
-  try {
-    const d = JSON.parse(raw.value.trim());
-    if (d.teamName)    S.teamName   = d.teamName;
-    if (d.sprintName)  S.sprintName = d.sprintName;
-    if (d.velocityLast3) S.velocity = d.velocityLast3;
-    if (d.carryOverPoints !== undefined) S.carryOver = Number(d.carryOverPoints);
-    if (d.sprintLengthDays) S.sprintWeeks = d.sprintLengthDays / 5;
-    // accept multiple possible field names from Jira/Claude output
-    S.startDate = d.startDate || d.sprintStartDate || d.start_date || '';
-    S.endDate   = d.endDate   || d.sprintEndDate   || d.end_date   || '';
-    // if Jira gives ISO datetime strings (2024-03-01T00:00:00.000Z), trim to date only
-    if (S.startDate.length > 10) S.startDate = S.startDate.substring(0,10);
-    if (S.endDate.length   > 10) S.endDate   = S.endDate.substring(0,10);
-    if (d.teamMembers && Array.isArray(d.teamMembers)) {
-      S.members = d.teamMembers.map(m => ({
-        name:  m.name  || m.displayName || 'Unknown',
-        role:  m.role  || 'Dev',
-        avail: m.availabilityPct !== undefined ? Number(m.availabilityPct) : 100,
-      }));
-    }
-    S.connected  = true;
-    S.jiraMode   = true;
-    S.showPaste  = false;
-    saveState();
-    render();
-  } catch(e) {
-    const err = document.getElementById('paste-error');
-    if (err) { err.textContent = 'Invalid JSON — check the format and try again.'; err.style.display='block'; }
-  }
-}
+
 
 // ─── PDF export ───────────────────────────────────────────────────────────────
 function genReport() {
